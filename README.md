@@ -14,7 +14,7 @@ No account, no server — your items stay on your device.
 ## Android app
 
 **Install:** on your phone, open
-`https://github.com/R0N1N9/saintanthony/releases/download/android-latest/st-anthony.apk`
+`https://github.com/R0N1N9/stanthony/releases/download/android-latest/st-anthony.apk`
 and tap the downloaded file. Android will ask you to allow installs from your
 browser the first time. Every push that touches `android/` rebuilds that file.
 
