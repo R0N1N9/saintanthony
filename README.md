@@ -3,8 +3,46 @@
 Find what's lost. St. Anthony remembers where you left your things and guides
 you back to them with a compass arrow, a pixie-dust trail in your camera, and a map.
 
-This is the phase 1 prototype: a web app you can add to your phone's home
-screen. No account, no server — your items stay on your device.
+There are two versions in this repo:
+
+- **Android app** (`android/`) — the main one. Native sensors, Bluetooth and
+  Wi-Fi signal finding. See [Android app](#android-app) below.
+- **Web app** (repo root) — the original prototype; runs in any phone browser.
+
+No account, no server — your items stay on your device.
+
+## Android app
+
+**Install:** on your phone, open
+`https://github.com/R0N1N9/saintanthony/releases/download/android-latest/st-anthony.apk`
+and tap the downloaded file. Android will ask you to allow installs from your
+browser the first time. Every push that touches `android/` rebuilds that file.
+
+What it adds over the web version:
+
+- **Signal tab lists everything nearby** — your paired Bluetooth devices,
+  other Bluetooth devices, and Wi-Fi networks (your router included) — with
+  fast readings, a hot/cold meter and spin-to-find direction.
+- **Link a signal to an item.** While the app is open and the signal is close,
+  that item's last-seen spot updates by itself.
+- **Steadier compass**, corrected to true north, with a warning when it needs
+  calibrating.
+- Faster, steadier location.
+
+Not in the Android app yet: floor-anchored AR (the trail is still placed by
+compass and tilt), walking-path routes, background tracking while the app is
+closed, ultra-wideband. See [docs/DESIGN.md](docs/DESIGN.md).
+
+Limits worth knowing: a paired device only shows a signal while it is
+broadcasting (many earbuds go quiet when connected or asleep). Wi-Fi strength
+updates every few seconds for the network you're connected to and only about
+every 30 seconds for others — Android limits this.
+
+**Build it yourself:** `cd android && ./gradlew assembleDebug` (needs the
+Android SDK). Test builds are signed with the shared key in
+`android/debug.keystore`; a Play Store release needs its own private key.
+
+## Web app
 
 ## What it does
 
@@ -64,6 +102,13 @@ then open the page on your phone and "Add to Home Screen".
 ## Code map
 
 ```
+android/                 native Android app (Kotlin + Jetpack Compose)
+  app/src/main/java/app/saintanthony/finder/
+    Sensors.kt           compass + location
+    Signals.kt           Bluetooth / Wi-Fi scanning, meter, spin sweep
+    AppModel.kt          items, linking, auto pins, buzz guide
+    ui/                  the five screens
+
 index.html, styles.css   UI shell
 js/app.js                screens, item dialog, wiring
 js/sensors.js            GPS + compass heading + tilt, simulator fallback

@@ -34,7 +34,12 @@ Chrome on Android, follow a strength meter, and spin for a rough bearing.
 Known limits: GPS precision; browser AR is compass-and-tilt based, so the trail
 floats rather than sticking to the floor; no background operation.
 
-## Phase 2 — native app + beacons
+## Phase 2 — native app + beacons (started)
+
+Built so far in `android/`: native compass and location, Bluetooth LE and Wi-Fi
+scanning with the paired-device list, hot/cold meter, spin-to-find, linking a
+signal to an item, and automatic last-seen pins while the app is open. The rest
+of this section is still to do.
 
 Move to a native app (React Native/Expo or Swift/Kotlin) when the web hits its
 ceiling:

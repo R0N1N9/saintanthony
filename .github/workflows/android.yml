@@ -1,0 +1,42 @@
+name: Android APK
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk st-anthony.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: st-anthony-apk
+          path: st-anthony.apk
+      # Keeps one always-current download link:
+      # https://github.com/<owner>/<repo>/releases/download/android-latest/st-anthony.apk
+      - name: Publish as the "android-latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --cleanup-tag --yes || true
+          gh release create android-latest st-anthony.apk \
+            --target "$GITHUB_SHA" --prerelease \
+            --title "St. Anthony for Android (latest test build)" \
+            --notes "Test build from commit $GITHUB_SHA. Install by opening st-anthony.apk on your phone."
