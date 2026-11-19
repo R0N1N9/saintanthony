@@ -17,8 +17,10 @@ import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.max
 
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 /** An item being added or edited, before it has a location. */
-data class Draft(val id: String?, val name: String, val emoji: String, val note: String)
+data class Draft(val id: String?, val name: String, val icon: String, val note: String)
 
 /** Everything the screens share: items, sensors, signal scanning, guidance. */
 class AppModel(app: Application) : AndroidViewModel(app) {
@@ -32,6 +34,20 @@ class AppModel(app: Application) : AndroidViewModel(app) {
 
     /** Set while the user is choosing an item's spot on the map. */
     var picking by mutableStateOf<Draft?>(null)
+
+    /** Light, dark, or follow the phone. */
+    var theme by mutableStateOf(
+        try { ThemeMode.valueOf(prefs.getString("theme", null) ?: "SYSTEM") } catch (e: Exception) { ThemeMode.SYSTEM }
+    )
+        private set
+
+    fun chooseTheme(mode: ThemeMode) {
+        theme = mode
+        prefs.edit().putString("theme", mode.name).apply()
+    }
+
+    /** True when the AR view should follow the tracked signal instead of the selected item. */
+    var arSignal by mutableStateOf(false)
 
     val orientation = OrientationTracker(app)
     val location = LocationTracker(app) { fix ->
@@ -71,16 +87,16 @@ class AppModel(app: Application) : AndroidViewModel(app) {
     fun save(d: Draft, at: LatLng, acc: Float): Item {
         val sighting = Sighting(at.lat, at.lng, acc, System.currentTimeMillis(), d.note)
         val old = items.find { it.id == d.id }
-        val item = (old ?: Item(UUID.randomUUID().toString(), d.name, d.emoji)).let {
-            it.copy(name = d.name, emoji = d.emoji, sightings = (it.sightings + sighting).takeLast(50))
+        val item = (old ?: Item(UUID.randomUUID().toString(), d.name, d.icon)).let {
+            it.copy(name = d.name, icon = d.icon, sightings = (it.sightings + sighting).takeLast(50))
         }
         commit(if (old == null) items + item else items.map { if (it.id == item.id) item else it })
         if (target == null) selectTarget(item.id)
         return item
     }
 
-    fun rename(id: String, name: String, emoji: String) =
-        commit(items.map { if (it.id == id) it.copy(name = name, emoji = emoji) else it })
+    fun rename(id: String, name: String, icon: String) =
+        commit(items.map { if (it.id == id) it.copy(name = name, icon = icon) else it })
 
     fun delete(id: String) {
         commit(items.filter { it.id != id })

@@ -62,25 +62,25 @@ class SignalEngine(
     }
 
     var sources by mutableStateOf<List<Source>>(emptyList())
-        private set
+        internal set
     var trackedId by mutableStateOf<String?>(null)
-        private set
+        internal set
     var trackedName by mutableStateOf("")
-        private set
+        internal set
     var trackedKind by mutableStateOf(Kind.BLE)
-        private set
+        internal set
     var rssi by mutableStateOf<Float?>(null)
-        private set
+        internal set
     var lastHeard by mutableLongStateOf(0L)
-        private set
+        internal set
     var trend by mutableFloatStateOf(0f) // dB over the last few seconds; + = warmer
-        private set
+        internal set
     var sweep by mutableStateOf<List<Boolean>?>(null) // which slices are covered, while spinning
-        private set
+        internal set
     var direction by mutableStateOf<Direction?>(null)
-        private set
+        internal set
     var bluetoothOn by mutableStateOf(true)
-        private set
+        internal set
 
     private val bt = ctx.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
     private val wifi = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager

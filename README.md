@@ -29,6 +29,12 @@ What it adds over the web version:
   calibrating.
 - Faster, steadier location.
 
+- **Signals in AR.** Track a Bluetooth or Wi-Fi source, tap **See in AR**, turn
+  in a circle while the ring fills, and a pixie-dust trail points the way the
+  signal is strongest. It shows direction, not distance — scan again as you get
+  closer.
+- **Light, dark and system themes** (gear icon, top right; system is the default).
+
 Not in the Android app yet: floor-anchored AR (the trail is still placed by
 compass and tilt), walking-path routes, background tracking while the app is
 closed, ultra-wideband. See [docs/DESIGN.md](docs/DESIGN.md).
@@ -39,7 +45,8 @@ updates every few seconds for the network you're connected to and only about
 every 30 seconds for others — Android limits this.
 
 **Build it yourself:** `cd android && ./gradlew assembleDebug` (needs the
-Android SDK). Test builds are signed with the shared key in
+Android SDK). `./gradlew testDebugUnitTest` renders every screen, in light and
+dark, to `android/app/build/shots/` so the design can be checked without a phone. Test builds are signed with the shared key in
 `android/debug.keystore`; a Play Store release needs its own private key.
 
 ## Web app

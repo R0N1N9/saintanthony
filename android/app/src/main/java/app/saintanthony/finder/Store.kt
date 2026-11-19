@@ -19,7 +19,7 @@ data class Sighting(
 data class Item(
     val id: String,
     val name: String,
-    val emoji: String,
+    val icon: String,
     val sightings: List<Sighting> = emptyList(), // newest last
     val signalId: String? = null, // linked Bluetooth / Wi-Fi source
     val signalName: String? = null,
@@ -37,7 +37,7 @@ class Store(private val file: File) {
             Item(
                 id = o.getString("id"),
                 name = o.getString("name"),
-                emoji = o.getString("emoji"),
+                icon = o.getString("emoji"), // stored under the old field name
                 sightings = List(ss.length()) { j ->
                     val s = ss.getJSONObject(j)
                     Sighting(
@@ -64,7 +64,7 @@ class Store(private val file: File) {
                 )
             }
             arr.put(
-                JSONObject().put("id", item.id).put("name", item.name).put("emoji", item.emoji)
+                JSONObject().put("id", item.id).put("name", item.name).put("emoji", item.icon)
                     .put("sightings", ss).put("signalId", item.signalId ?: "")
                     .put("signalName", item.signalName ?: "")
             )

@@ -41,15 +41,15 @@ class OrientationTracker(ctx: Context) : SensorEventListener {
 
     /** Degrees from true north; NaN until the first reading. */
     var heading by mutableFloatStateOf(Float.NaN)
-        private set
+        internal set
 
     /** Degrees the rear camera is tilted above the horizon. */
     var pitch by mutableFloatStateOf(0f)
-        private set
+        internal set
     var faceDown by mutableStateOf(false)
-        private set
+        internal set
     var needsCalibration by mutableStateOf(false)
-        private set
+        internal set
 
     /** Magnetic-to-true-north correction for where we are; set from the GPS fix. */
     var declination = 0f
@@ -99,7 +99,7 @@ class LocationTracker(private val ctx: Context, private val onFix: (Fix) -> Unit
     private var running = false
 
     var pos by mutableStateOf<Fix?>(null)
-        private set
+        internal set
 
     private val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {

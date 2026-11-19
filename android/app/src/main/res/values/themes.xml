@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#141028</color>
-    <style name="Theme.StAnthony" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/bg</item>
-        <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/bg</item>
+    <color name="window_bg">#F6F6FA</color>
+    <color name="icon_bg">#2B2670</color>
+    <style name="Theme.StAnthony" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_bg</item>
     </style>
 </resources>

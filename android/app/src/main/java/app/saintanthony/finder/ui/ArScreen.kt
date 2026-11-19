@@ -13,11 +13,22 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.Wifi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -35,11 +46,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.VectorPainter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -47,10 +63,14 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.saintanthony.finder.AppModel
 import app.saintanthony.finder.Geo
+import app.saintanthony.finder.Kind
+import app.saintanthony.finder.Tab
 import app.saintanthony.finder.has
+import app.saintanthony.finder.proximity
 import kotlin.math.abs
 import kotlin.math.atan
 import kotlin.math.atan2
+import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.hypot
 import kotlin.math.max
@@ -60,13 +80,27 @@ import kotlin.math.tan
 
 private const val CAM_HEIGHT = 1.4 // metres; phone held at chest height
 private const val SPACING = 2.0 // metres between dust puffs
-private const val FLOW = 1.3 // m/s the dust drifts toward the item
+private const val FLOW = 1.3 // m/s the dust drifts toward the goal
+private const val SIGNAL_REACH = 20.0 // metres of trail drawn toward a signal (its distance is unknown)
 
-/** Camera view with a pixie-dust trail on the ground leading to a beacon over the item. */
+private val DustCore = Color(1f, 0.98f, 0.86f)
+private val DustMid = Color(1f, 0.84f, 0.4f)
+private val DustEdge = Color(1f, 0.7f, 0.24f)
+
+/** Where a trail leads: [east]/[north] metres from the viewer, and what to call it. */
+private class Goal(val east: Double, val north: Double, val label: String, val atGoal: Boolean)
+
+/**
+ * Camera view with a pixie-dust trail on the ground. It leads either to the
+ * selected item's saved spot, or in the direction a tracked Bluetooth / Wi-Fi
+ * signal is strongest.
+ */
 @Composable
-fun ArScreen(m: AppModel) {
+fun ArScreen(m: AppModel, go: (Tab) -> Unit) {
     val ctx = LocalContext.current
     val owner = LocalLifecycleOwner.current
+    val c = MaterialTheme.colorScheme
+    val s = m.signals
     var granted by remember { mutableStateOf(ctx.has(Manifest.permission.CAMERA)) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
     LaunchedEffect(Unit) { if (!granted) ask.launch(Manifest.permission.CAMERA) }
@@ -74,17 +108,24 @@ fun ArScreen(m: AppModel) {
 
     val target = m.target
     val pos = m.location.pos
-    val dist = if (target != null && pos != null) Geo.distance(pos.latLng, target.last!!.latLng) else null
+    val hasSignal = s.trackedId != null
+    val signalMode = hasSignal && (m.arSignal || target == null)
+    val dir = s.direction
+    val sweep = s.sweep
 
-    Box(
-        Modifier.fillMaxSize().background(
-            Brush.verticalGradient(listOf(Color(0xFF07051A), Bg, Color(0xFF3B2F7A)))
-        )
-    ) {
+    // Entering signal mode with no bearing yet: start scanning straight away.
+    LaunchedEffect(signalMode, s.trackedId) {
+        if (signalMode && s.direction == null && s.sweep == null) s.startSweep()
+    }
+
+    val itemPainter = rememberVectorPainter(itemIcon(target?.icon ?: "box"))
+    val signalPainter = rememberVectorPainter(if (s.trackedKind == Kind.WIFI) Icons.Rounded.Wifi else Icons.Rounded.Bluetooth)
+
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF07051A), Color(0xFF141028), Color(0xFF3B2F7A))))) {
         if (granted) {
-            AndroidView(modifier = Modifier.fillMaxSize(), factory = { c ->
-                PreviewView(c).also { pv ->
-                    val future = ProcessCameraProvider.getInstance(c)
+            AndroidView(modifier = Modifier.fillMaxSize(), factory = { cx ->
+                PreviewView(cx).also { pv ->
+                    val future = ProcessCameraProvider.getInstance(cx)
                     future.addListener({
                         try {
                             val provider = future.get()
@@ -95,7 +136,7 @@ fun ArScreen(m: AppModel) {
                         } catch (e: Exception) {
                             // No usable camera: the gradient backdrop stays.
                         }
-                    }, ContextCompat.getMainExecutor(c))
+                    }, ContextCompat.getMainExecutor(cx))
                 }
             })
             DisposableEffect(Unit) {
@@ -105,39 +146,115 @@ fun ArScreen(m: AppModel) {
             }
         }
 
-        if (target != null && pos != null) Trail(m, vfov)
-
-        val msg = when {
-            target == null -> "Pick an item from Items first."
-            pos == null || dist == null -> "Waiting for GPS…"
-            dist < max(8f, pos.acc) -> "You're within GPS accuracy of it — look around here ✨"
-            m.orientation.pitch > 50 || m.orientation.pitch < -60 -> "Hold the phone upright to see the trail."
-            !granted -> "Camera permission is off, so the trail is shown without the camera view."
-            else -> null
+        // ---------- what's drawn over the camera ----------
+        if (signalMode) {
+            if (sweep != null) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val heading = m.orientation.heading.let { if (it.isNaN()) 0f else it }
+                    sweepRing(sweep, heading, 96.dp.toPx(), DustMid, Color.White.copy(alpha = 0.28f), Offset(size.width / 2, size.height * 0.38f))
+                }
+            } else if (dir != null && dir.clear) {
+                Trail(m, vfov, signalPainter) {
+                    val b = Math.toRadians(dir.bearing.toDouble())
+                    Goal(sin(b) * SIGNAL_REACH, cos(b) * SIGNAL_REACH, "${s.trackedName} · this way", atGoal = false)
+                }
+            }
+        } else if (target != null) {
+            Trail(m, vfov, itemPainter) {
+                val p = m.location.pos
+                val loc = m.target?.last
+                if (p == null || loc == null) null else {
+                    val (e, n) = Geo.toLocal(p.latLng, loc.latLng)
+                    Goal(e, n, "${m.target?.name} · ${Geo.fmtDist(hypot(e, n))}", atGoal = true)
+                }
+            }
         }
-        if (msg != null) {
-            Text(
-                msg, textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp).fillMaxWidth()
-                    .background(Color(0xCC141028), RoundedCornerShape(14.dp)).padding(12.dp),
-            )
+
+        // ---------- item / signal switch ----------
+        if (target != null && hasSignal) {
+            Row(Modifier.align(Alignment.TopCenter).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val chip = FilterChipDefaults.filterChipColors(containerColor = c.surface.copy(alpha = 0.9f))
+                FilterChip(selected = !signalMode, onClick = { m.arSignal = false }, label = { Text(target.name, maxLines = 1) }, colors = chip)
+                FilterChip(selected = signalMode, onClick = { m.arSignal = true }, label = { Text(s.trackedName, maxLines = 1) }, colors = chip)
+            }
+        }
+
+        // ---------- bottom panel ----------
+        Surface(
+            Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth(),
+            shape = MaterialTheme.shapes.large, color = c.surface.copy(alpha = 0.94f),
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                when {
+                    signalMode -> {
+                        val now = rememberNow()
+                        val rssi = s.rssi
+                        val lost = rssi == null || now - s.lastHeard > 8000
+                        Text(s.trackedName, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Meter(if (lost || rssi == null) 0f else meterFraction(rssi))
+                        Text(
+                            when {
+                                lost || rssi == null -> "No signal right now. It may be out of range or asleep."
+                                sweep != null && s.trackedKind == Kind.WIFI ->
+                                    "Hold the phone upright, close to your chest, and turn very slowly in a full circle — Wi-Fi only updates every few seconds."
+                                sweep != null -> "Hold the phone upright, close to your chest, and turn slowly in a full circle until the ring fills."
+                                dir == null -> proximity(rssi)
+                                !dir.clear -> "No clear direction from here. Take a few steps and scan again."
+                                else -> "${proximity(rssi)}. The trail shows where the signal is strongest, not how far — scan again as you get closer."
+                            },
+                            style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FilledTonalButton(onClick = { if (sweep != null) s.cancelSweep() else s.startSweep() }, modifier = Modifier.weight(1f)) {
+                                Text(if (sweep != null) "Cancel" else "Scan again")
+                            }
+                            OutlinedButton(onClick = { go(Tab.SIGNAL) }, modifier = Modifier.weight(1f)) { Text("Signal details") }
+                        }
+                    }
+                    target != null -> {
+                        val dist = pos?.let { Geo.distance(it.latLng, target.last!!.latLng) }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            IconBadge(itemIcon(target.icon), size = 38.dp)
+                            Text(target.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(Geo.fmtDist(dist), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        }
+                        val msg = when {
+                            pos == null || dist == null -> "Waiting for your location…"
+                            dist < max(8f, pos.acc) -> "You're as close as GPS can tell. Look around here."
+                            m.orientation.pitch > 50 || m.orientation.pitch < -60 -> "Hold the phone upright to see the trail."
+                            !granted -> "Camera access is off, so the trail is shown without the camera view."
+                            else -> null
+                        }
+                        if (msg != null) Text(msg, style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant)
+                    }
+                    else -> {
+                        Text("Nothing to follow yet", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Choose one of your things, or pick a Bluetooth or Wi-Fi signal, and a trail will lead you toward it.",
+                            style = MaterialTheme.typography.bodyMedium, color = c.onSurfaceVariant,
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            FilledTonalButton(onClick = { go(Tab.ITEMS) }, modifier = Modifier.weight(1f)) { Text("Your things") }
+                            FilledTonalButton(onClick = { m.arSignal = true; go(Tab.SIGNAL) }, modifier = Modifier.weight(1f)) { Text("Signals") }
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun Trail(m: AppModel, vfov: Float) {
+private fun Trail(m: AppModel, vfov: Float, icon: VectorPainter, goal: () -> Goal?) {
     val seconds by produceState(0.0) {
         val start = withFrameNanos { it }
         while (true) withFrameNanos { value = (it - start) / 1e9 }
     }
-    val text = remember { Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER } }
+    val text = remember { Paint().apply { isAntiAlias = true; textAlign = Paint.Align.CENTER; isFakeBoldText = true } }
 
     Canvas(Modifier.fillMaxSize()) {
         val t = seconds
-        val item = m.target ?: return@Canvas
-        val loc = item.last ?: return@Canvas
-        val pos = m.location.pos ?: return@Canvas
+        val g = goal() ?: return@Canvas
         val heading = m.orientation.heading
         if (heading.isNaN()) return@Canvas
         val pitch = m.orientation.pitch
@@ -159,11 +276,10 @@ private fun Trail(m: AppModel, vfov: Float) {
             )
         }
 
-        val (te, tn) = Geo.toLocal(pos.latLng, loc.latLng)
-        val dist = hypot(te, tn)
+        val dist = hypot(g.east, g.north)
         if (dist < 0.5) return@Canvas
-        val ue = te / dist
-        val un = tn / dist
+        val ue = g.east / dist
+        val un = g.north / dist
 
         // --- pixie dust, far to near so the close puffs draw on top ---
         val reach = min(dist, 45.0)
@@ -174,7 +290,7 @@ private fun Trail(m: AppModel, vfov: Float) {
             if (along < 1.2) continue
             val s = project(ue * along, un * along, 0.15) ?: continue
             val radius = (f * 0.16f / s.third.toFloat()).coerceIn(4f, 60f)
-            val fade = (min(1.0, (along - 1.2) / 2) * min(1.0, (46 - along) / 8)).toFloat().coerceIn(0f, 1f)
+            val fade = (min(1.0, (along - 1.2) / 2) * min(1.0, (reach + 1 - along) / 6)).toFloat().coerceIn(0f, 1f)
             glow(Offset(s.first, s.second), radius, 0.85f * fade)
             val id = i + floor(t * FLOW / SPACING).toInt() // stays with the puff as it drifts
             for (k in 0 until 4) {
@@ -186,44 +302,47 @@ private fun Trail(m: AppModel, vfov: Float) {
             }
         }
 
-        // --- beacon over the item ---
-        val b = project(te, tn, 1.0)
+        // --- waypoint at the end of the trail ---
+        val b = project(g.east, g.north, 1.0)
         val pad = 30.dp.toPx()
+        val canvas = drawContext.canvas.nativeCanvas
         if (b != null && b.first > pad && b.first < w - pad) {
             val x = b.first
-            val y = b.second.coerceIn(90.dp.toPx(), h - 120.dp.toPx())
-            val tall = 220.dp.toPx()
-            drawRect(
-                Brush.verticalGradient(listOf(Color.Transparent, Gold.copy(alpha = 0.55f)), y - tall, y),
-                topLeft = Offset(x - 5.dp.toPx(), y - tall), size = Size(10.dp.toPx(), tall),
-            )
-            glow(Offset(x, y), 46.dp.toPx() * (1f + 0.15f * sin(t * 4).toFloat()), 0.9f)
-            val canvas = drawContext.canvas.nativeCanvas
-            text.clearShadowLayer()
-            text.textSize = 34.sp.toPx()
+            val y = b.second.coerceIn(90.dp.toPx(), h - 200.dp.toPx())
+            if (g.atGoal) {
+                val tall = 200.dp.toPx()
+                drawRect(
+                    Brush.verticalGradient(listOf(Color.Transparent, DustMid.copy(alpha = 0.55f)), y - tall, y),
+                    topLeft = Offset(x - 4.dp.toPx(), y - tall), size = Size(8.dp.toPx(), tall),
+                )
+            }
+            val disc = 26.dp.toPx()
+            glow(Offset(x, y), disc * 2.2f * (1f + 0.12f * sin(t * 4).toFloat()), 0.9f)
+            drawCircle(Color.White, disc, Offset(x, y))
+            val iconSize = disc * 1.1f
+            translate(x - iconSize / 2, y - iconSize / 2) {
+                with(icon) { draw(Size(iconSize, iconSize), colorFilter = ColorFilter.tint(Color(0xFF2B2670))) }
+            }
             text.color = Color.White.toArgb()
-            canvas.drawText(item.emoji, x, y + text.textSize / 3, text)
             text.textSize = 15.sp.toPx()
-            text.isFakeBoldText = true
             text.setShadowLayer(8f, 0f, 0f, Color.Black.toArgb())
-            canvas.drawText("${item.name} · ${Geo.fmtDist(dist)}", x, y + 54.dp.toPx(), text)
+            canvas.drawText(g.label, x, y - disc - 16.dp.toPx(), text) // above, clear of the dust
         } else {
             // Off-screen: nudge the user to turn.
-            val rel = Geo.angleDiff(Math.toDegrees(atan2(te, tn)).toFloat(), heading)
+            val rel = Geo.angleDiff(Math.toDegrees(atan2(g.east, g.north)).toFloat(), heading)
             val right = rel > 0
             val x = if (right) w - 44.dp.toPx() else 44.dp.toPx()
-            val bob = sin(t * 5).toFloat() * 6.dp.toPx() * (if (right) 1 else -1)
-            drawCircle(Color(0xB3141028), 34.dp.toPx(), Offset(x, h / 2))
-            val canvas = drawContext.canvas.nativeCanvas
+            val y = h * 0.4f
+            val bob = sin(t * 5).toFloat() * 5.dp.toPx() * (if (right) 1 else -1)
+            drawCircle(Color(0xCC141028), 30.dp.toPx(), Offset(x, y))
             text.clearShadowLayer()
-            text.isFakeBoldText = true
-            text.color = Gold.toArgb()
-            text.textSize = 40.sp.toPx()
-            canvas.drawText(if (right) "›" else "‹", x + bob, h / 2 + text.textSize / 3, text)
+            text.color = DustMid.toArgb()
+            text.textSize = 36.sp.toPx()
+            canvas.drawText(if (right) "›" else "‹", x + bob, y + text.textSize / 3, text)
             text.color = Color.White.toArgb()
             text.textSize = 13.sp.toPx()
             text.setShadowLayer(6f, 0f, 0f, Color.Black.toArgb())
-            canvas.drawText("turn ${if (right) "right" else "left"}", x, h / 2 + 54.dp.toPx(), text)
+            canvas.drawText("turn ${if (right) "right" else "left"}", x, y + 50.dp.toPx(), text)
         }
     }
 }
@@ -231,9 +350,9 @@ private fun Trail(m: AppModel, vfov: Float) {
 private fun DrawScope.glow(at: Offset, radius: Float, alpha: Float) {
     drawCircle(
         Brush.radialGradient(
-            0f to Color(1f, 0.98f, 0.86f, alpha),
-            0.3f to Color(1f, 0.84f, 0.4f, alpha * 0.7f),
-            1f to Color(1f, 0.7f, 0.24f, 0f),
+            0f to DustCore.copy(alpha = alpha),
+            0.3f to DustMid.copy(alpha = alpha * 0.7f),
+            1f to DustEdge.copy(alpha = 0f),
             center = at, radius = radius,
         ),
         radius, at, blendMode = BlendMode.Plus,
