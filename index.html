@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#141028">
+  <title>St. Anthony — find what's lost</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>✨ St. Anthony</h1>
+    <span id="status" class="chip">Starting…</span>
+  </header>
+
+  <div id="target-bar" hidden>
+    <span id="target-emoji"></span>
+    <div>
+      <strong id="target-name"></strong>
+      <small id="target-meta"></small>
+    </div>
+    <span id="target-dist"></span>
+  </div>
+
+  <main>
+    <!-- ITEMS -->
+    <section id="view-items" class="view active">
+      <div id="items"></div>
+      <p id="empty" class="hint" hidden>
+        Nothing here yet. Add the things you tend to lose — keys, wallet, bike, car —
+        and tap <b>“It's right here”</b> whenever you set one down.
+      </p>
+      <button id="add" class="primary big">＋ Add an item</button>
+    </section>
+
+    <!-- COMPASS -->
+    <section id="view-find" class="view">
+      <div id="no-target" class="hint">Pick an item from <b>Items</b> to start finding it.</div>
+      <div id="finder" hidden>
+        <div id="dial">
+          <div id="rose"><span>N</span><span>E</span><span>S</span><span>W</span></div>
+          <svg id="arrow" viewBox="-50 -50 100 100" aria-hidden="true">
+            <path d="M0-44 L26 30 L0 14 L-26 30 Z" />
+          </svg>
+          <div id="dial-center">
+            <b id="dial-dist">—</b>
+            <small id="dial-dir"></small>
+          </div>
+        </div>
+        <p id="instruction">Waiting for GPS…</p>
+        <div class="row">
+          <button id="guide" class="chip-btn" aria-pressed="false">🔔 Buzz &amp; beep guide</button>
+          <button id="walk" class="chip-btn" aria-pressed="false">🚶 Follow walking paths</button>
+        </div>
+        <p class="hint small" id="guide-hint">
+          With the guide on you can turn the phone face-down: slowly sweep it around and it
+          pulses faster when it points at your item.
+        </p>
+        <button id="found" class="primary">🎉 Found it!</button>
+      </div>
+    </section>
+
+    <!-- AR -->
+    <section id="view-ar" class="view">
+      <video id="cam" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div id="ar-msg" class="hint">Pick an item from <b>Items</b> first.</div>
+    </section>
+
+    <!-- MAP -->
+    <section id="view-map" class="view">
+      <div id="map"></div>
+      <div id="pick-banner" hidden>Tap the map where you left it <button id="pick-cancel">Cancel</button></div>
+      <button id="recenter" title="Recenter">◎</button>
+    </section>
+  </main>
+
+  <div id="sim" hidden>
+    <label>Simulated compass <output id="sim-out">0°</output>
+      <input id="sim-heading" type="range" min="0" max="359" value="0">
+    </label>
+    <small>No compass on this device — drag to turn. On the Map tab, tap to move yourself.</small>
+  </div>
+
+  <nav>
+    <button data-view="items" class="active"><i>🎒</i>Items</button>
+    <button data-view="find"><i>🧭</i>Compass</button>
+    <button data-view="ar"><i>✨</i>AR Trail</button>
+    <button data-view="map"><i>🗺️</i>Map</button>
+  </nav>
+
+  <div id="welcome">
+    <div class="card">
+      <div class="logo">✨</div>
+      <h2>St. Anthony</h2>
+      <p>Remember where your things are, and follow a trail of pixie dust back to them.</p>
+      <p class="small">Needs your location and compass. Everything stays on this device.</p>
+      <button id="start" class="primary big">Start</button>
+    </div>
+  </div>
+
+  <dialog id="item-dialog">
+    <form method="dialog">
+      <h3 id="dlg-title">Add an item</h3>
+      <div id="emoji-row"></div>
+      <input id="dlg-name" placeholder="What is it? (e.g. Keys)" maxlength="40" autocomplete="off">
+      <input id="dlg-note" placeholder="Note (optional) — e.g. on the hallway shelf" maxlength="80" autocomplete="off">
+      <button id="dlg-here" class="primary" type="button">📍 It's right here</button>
+      <button id="dlg-pick" type="button">🗺️ Pick the spot on the map</button>
+      <button id="dlg-delete" class="danger" type="button" hidden>Delete item</button>
+      <button id="dlg-cancel" type="button">Cancel</button>
+    </form>
+  </dialog>
+
+  <div id="toast" hidden></div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
