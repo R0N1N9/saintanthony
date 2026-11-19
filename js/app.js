@@ -5,6 +5,7 @@ import { initAR, startAR, stopAR } from "./ar.js";
 import { initMap, refreshMap, setMapClick, recenter } from "./map.js";
 import { initGuide, setGuide, guideOn } from "./guide.js";
 import { setWalking, walkingEnabled } from "./trail.js";
+import { Sig, onSignal, pickDevice, pickSim, stop as stopSignal, startSweep, cancelSweep, sweepProgress, proximity } from "./signal.js";
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -82,7 +83,7 @@ function render() {
   const dist = target && S.pos ? distance(S.pos, target.loc) : null;
   const brg = target && S.pos ? bearing(S.pos, target.loc) : null;
 
-  $("target-bar").hidden = !target || view === "items";
+  $("target-bar").hidden = !target || view === "items" || view === "signal";
   if (target) {
     $("target-emoji").textContent = target.item.emoji;
     $("target-name").textContent = target.item.name;
@@ -133,7 +134,59 @@ function render() {
     $("ar-msg").hidden = !msg;
   }
 
+  if (view === "signal") renderSignal();
+
   refreshMap(targetId, view === "map");
+}
+
+function renderSignal() {
+  $("sig-idle").hidden = !!Sig.name;
+  $("sig-live").hidden = !Sig.name;
+  if (!Sig.name) {
+    const err = !Sig.supported
+      ? "This browser can't scan for Bluetooth. Use Chrome on Android."
+      : Sig.error === "needs-flag"
+      ? "Chrome needs one setting switched on to read signal strength: open chrome://flags, search for “Experimental Web Platform features”, enable it and relaunch."
+      : Sig.error;
+    $("sig-error").textContent = DEMO ? "" : err || "";
+    $("sig-error").hidden = DEMO || !err;
+    $("sig-pick").disabled = !DEMO && !Sig.supported;
+    return;
+  }
+  $("sig-name").textContent = Sig.name;
+  const lost = Sig.rssi == null || Date.now() - Sig.lastHeard > 6000;
+  const pct = lost ? 0 : Math.max(4, Math.min(100, ((Sig.rssi + 100) / 60) * 100));
+  $("meter-fill").style.width = `${pct}%`;
+  $("sig-prox").textContent = lost
+    ? Sig.rssi == null ? "Listening for it…" : "Lost the signal — out of range, switched off, or asleep"
+    : proximity(Sig.rssi);
+  $("sig-trend").textContent = lost
+    ? ""
+    : `${Sig.trend > 2.5 ? "🔥 Getting warmer" : Sig.trend < -2.5 ? "❄️ Getting colder" : "Steady"} · ${Math.round(Sig.rssi)} dBm`;
+
+  const sweeping = !!Sig.sweep, dir = Sig.direction;
+  $("sig-dial").hidden = !sweeping && !dir;
+  $("sig-arrow").toggleAttribute("hidden", !dir); // SVG has no .hidden property
+  $("sig-sweep").textContent = sweeping ? "Cancel" : dir ? "🧭 Try again" : "🧭 Find direction";
+  if (sweeping) {
+    const done = sweepProgress();
+    const step = 360 / done.length;
+    $("sig-ring").style.background = `conic-gradient(${done
+      .map((d, i) => `${d ? "var(--gold)" : "var(--panel-2)"} ${i * step}deg ${(i + 1) * step - 2}deg, transparent ${(i + 1) * step - 2}deg ${(i + 1) * step}deg`)
+      .join(",")})`;
+    $("sig-ring").style.transform = `rotate(${-(S.heading ?? 0)}deg)`;
+    $("sig-msg").textContent =
+      "Hold the phone flat against your stomach, top edge pointing away from you, and turn slowly in a full circle until the ring fills.";
+  } else if (dir) {
+    $("sig-ring").style.background = "var(--panel-2)";
+    $("sig-arrow").style.transform = `rotate(${angleDiff(dir.bearing, S.heading ?? 0)}deg)`;
+    $("sig-arrow").classList.toggle("unsure", !dir.clear);
+    $("sig-msg").textContent = dir.clear
+      ? `Strongest toward ${cardinal(dir.bearing)}. Walk that way, watch the meter, and spin again when you're closer.`
+      : "No clear direction — the signal was about the same all the way round. Walk a few steps and try again, turning more slowly.";
+  } else {
+    $("sig-msg").textContent = "Walk around and follow the meter, or tap Find direction for a rough bearing.";
+  }
 }
 
 // ---------- add / update item ----------
@@ -233,6 +286,12 @@ $("found").onclick = () => {
   toast(`🎉 Found ${t.item.name}! Location updated.`);
   show("items");
 };
+$("sig-pick").onclick = () => {
+  if (DEMO) pickSim("Keys", () => store.last(store.all()[0]));
+  else pickDevice();
+};
+$("sig-sweep").onclick = () => (Sig.sweep ? cancelSweep() : startSweep());
+$("sig-stop").onclick = stopSignal;
 $("recenter").onclick = () => { recenter(); render(); };
 $("sim-heading").oninput = (e) => {
   $("sim-out").textContent = `${e.target.value}°`;
@@ -275,5 +334,6 @@ const schedule = () => {
 };
 onSensors(schedule);
 store.onItems(schedule);
-setInterval(schedule, 15000); // keeps "5 min ago" labels fresh
+onSignal(schedule);
+setInterval(schedule, 3000); // keeps "5 min ago" labels and lost-signal state fresh
 render();

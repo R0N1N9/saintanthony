@@ -28,6 +28,9 @@ more automatic answers to question 1.
 Phone-only PWA. Manual pins, sighting history, compass, eyes-free haptic guide,
 AR trail, map, optional walking routes. Local storage, no backend.
 
+The **Signal** tab is an early taste of phase 2: pick a Bluetooth LE device in
+Chrome on Android, follow a strength meter, and spin for a rough bearing.
+
 Known limits: GPS precision; browser AR is compass-and-tilt based, so the trail
 floats rather than sticking to the floor; no background operation.
 
@@ -41,6 +44,16 @@ ceiling:
 - **Bluetooth beacons** — any cheap BLE tag. The app notes the phone's location
   whenever it loses contact with a tag: that is an *automatic* last-seen pin.
   Up close, signal strength drives a warmer/colder finder.
+- **Trusted devices** — list the phone's already-paired Bluetooth devices and
+  link each to an item, remembered permanently (the browser forgets between
+  visits and cannot see the paired list).
+- **Wi-Fi** — read the strength of your router or any access point, with the
+  same meter and spin-to-find.
+- **Signal mapping** — record strength at many spots as you walk (positions
+  from ARCore) and solve for where the source is; far better than a spin.
+- **Friends** — phones deliberately hide their Bluetooth identity, so a
+  friend's phone can only be found if they run St. Anthony and choose to share.
+  Never track a device whose owner hasn't agreed.
 - **UWB** where the phone supports it, for an arrow that is right to the
   centimetre indoors.
 - **Automatic pins without hardware** — car parked (Bluetooth disconnect),

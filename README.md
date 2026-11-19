@@ -13,11 +13,25 @@ screen. No account, no server — your items stay on your device.
 | **Items** | Your belongings and when/where each was last seen. Tap 📍 → "It's right here" whenever you set something down, or pick the spot on the map. |
 | **Compass** | A big arrow pointing at the item, distance, and "turn left 40°" prompts. Turn on **Buzz & beep guide** and you can use it face-down: sweep the phone around and it pulses when it points at the item. |
 | **AR Trail** | Camera view with a trail of pixie dust on the ground leading to a glowing beacon over the item. |
+| **Signal** | Home in on a Bluetooth device (earbuds, watch, tag, speaker) by its signal: a hot/cold strength meter, plus **Find direction** — turn in a circle and it estimates which way the signal is strongest. |
 | **Map** | You, all your items, the trail to the selected one, and the history of where it has been. |
 
 **Follow walking paths** (off by default) bends the trail along real footpaths
 using OpenStreetMap routing instead of a straight line. It sends your position
 and the item's position to that routing service, so it asks first.
+
+### About the Signal tab
+
+- Android Chrome only. If it says a setting is needed, open `chrome://flags`,
+  enable **Experimental Web Platform features**, and relaunch Chrome.
+- The device must be on, in range (about 10–30 m) and broadcasting. Many
+  devices stop broadcasting while connected to something, or after sleeping.
+- A phone can't sense signal direction directly. The spin works because your
+  body blocks part of the signal from behind you — it's a rough bearing, not an
+  arrow you can trust to the degree. Spin again as you get closer.
+- The browser can't read Wi-Fi signal strength, list your paired devices, or
+  remember a chosen device between visits. Those need the native app
+  (see [docs/DESIGN.md](docs/DESIGN.md)).
 
 ## Run it
 
@@ -56,6 +70,7 @@ js/sensors.js            GPS + compass heading + tilt, simulator fallback
 js/trail.js              straight-line / walking-route trail
 js/ar.js                 camera overlay: pixie dust + beacon
 js/guide.js              eyes-free buzz & beep guidance
+js/signal.js             Bluetooth signal meter + spin-to-find direction
 js/map.js                Leaflet map
 js/store.js              items + sighting history (localStorage)
 js/geo.js                distance / bearing maths

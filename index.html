@@ -71,6 +71,35 @@
       <div id="ar-msg" class="hint">Pick an item from <b>Items</b> first.</div>
     </section>
 
+    <!-- SIGNAL -->
+    <section id="view-signal" class="view">
+      <div id="sig-idle">
+        <p class="hint">
+          Home in on a Bluetooth device — earbuds, a watch, a tracker tag, a speaker —
+          by its signal. It has to be switched on and within Bluetooth range (roughly 10–30 m).
+        </p>
+        <button id="sig-pick" class="primary big">📡 Choose a Bluetooth device</button>
+        <p id="sig-error" class="hint small" hidden></p>
+      </div>
+      <div id="sig-live" hidden>
+        <h2 id="sig-name"></h2>
+        <div id="meter"><div id="meter-fill"></div></div>
+        <p id="sig-prox"></p>
+        <p id="sig-trend" class="hint small"></p>
+        <div id="sig-dial" hidden>
+          <div id="sig-ring"></div>
+          <svg id="sig-arrow" viewBox="-50 -50 100 100" aria-hidden="true" hidden>
+            <path d="M0-44 L26 30 L0 14 L-26 30 Z" />
+          </svg>
+        </div>
+        <p id="sig-msg" class="hint small"></p>
+        <div class="row">
+          <button id="sig-sweep" class="primary">🧭 Find direction</button>
+          <button id="sig-stop">Stop</button>
+        </div>
+      </div>
+    </section>
+
     <!-- MAP -->
     <section id="view-map" class="view">
       <div id="map"></div>
@@ -90,6 +119,7 @@
     <button data-view="items" class="active"><i>🎒</i>Items</button>
     <button data-view="find"><i>🧭</i>Compass</button>
     <button data-view="ar"><i>✨</i>AR Trail</button>
+    <button data-view="signal"><i>📡</i>Signal</button>
     <button data-view="map"><i>🗺️</i>Map</button>
   </nav>
 
