@@ -1,3 +1,5 @@
+<p align="center"><img src="icon.svg" width="120" alt="St. Anthony logo"></p>
+
 # ✨ St. Anthony
 
 Find what's lost. St. Anthony remembers where you left your things and guides
@@ -10,6 +12,13 @@ There are two versions in this repo:
 - **Web app** (repo root) — the original prototype; runs in any phone browser.
 
 No account, no server — your items stay on your device.
+
+<p align="center">
+  <img src="docs/screenshots/items.png" width="280" alt="Items tab listing Keys and Bike with distance and last-seen time">
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/compass.png" width="280" alt="Compass tab: arrow pointing to the keys, 75 m away, with a turn-right prompt">
+</p>
+<p align="center"><sub>The web app in <code>?demo</code> mode: your items, and the compass guiding you back to the keys.</sub></p>
 
 ## Android app
 
